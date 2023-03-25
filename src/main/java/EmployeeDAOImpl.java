@@ -1,105 +1,61 @@
-import java.sql.*;
-import java.util.ArrayList;
+
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+
+import javax.persistence.criteria.CriteriaQuery;
 import java.util.List;
 
 public class EmployeeDAOImpl implements EmployeeDAO {
-    private final Connection connection;
 
-    public EmployeeDAOImpl(Connection connection) {
-        this.connection = connection;
+    private final SessionFactory sessionFactory;
+
+    public EmployeeDAOImpl(SessionFactory sessionFactory) {
+        this.sessionFactory = sessionFactory;
     }
+
     @Override
-    public void create(Employee employee){
-        try {
-            PreparedStatement statement = connection.prepareStatement(
-                    "INSERT INTO employee (first_name, last_name, gender, age, city_id) " +
-                            "VALUES (?, ?, ?, ?, ?)");
-            statement.setString(1, employee.getFirstName());
-            statement.setString(2, employee.getLastName());
-            statement.setString(3, employee.getGender());
-            statement.setInt(4, employee.getAge());
-            statement.setInt(5, employee.getCity().getId());
-            statement.executeUpdate();
-        } catch (SQLException e) {
-            System.out.println("Ошибка подключения к базе данных или выполнения SQL запроса: " + e.getMessage());
-        }
+    public void create(Employee employee) {
+        Session session = sessionFactory.openSession();
+        Transaction transaction = session.beginTransaction();
+        session.save(employee);
+        transaction.commit();
+        session.close();
     }
 
     @Override
     public Employee getById(int id) {
-        Employee search = null;
-        try {
-            PreparedStatement statement = connection.prepareStatement(
-                    "SELECT * FROM employee JOIN city ON employee.city_id = city.city_id WHERE id=?");
-            statement.setInt(1, id);
-            ResultSet resultSet = statement.executeQuery();
-            if (resultSet.next()) {
-                City city = new City(resultSet.getInt("city_id"), resultSet.getString("city_name"));
-                search = new Employee(
-                        resultSet.getInt("id"),
-                        resultSet.getString("first_name"),
-                        resultSet.getString("last_name"),
-                        resultSet.getString("gender"),
-                        resultSet.getInt("age"),
-                        city);
-            }
-            return search;
-        } catch (SQLException e) {
-            System.out.println("Ошибка подключения к базе данных или выполнения SQL запроса: " + e.getMessage());
-        }
-        return null;
+        Session session = sessionFactory.openSession();
+        Employee employee = session.get(Employee.class, id);
+        session.close();
+        return employee;
     }
 
     @Override
     public List<Employee> getAll() {
-        List<Employee> employees = new ArrayList<>();
-        try {
-            Statement statement = connection.createStatement();
-            ResultSet resultSet = statement.executeQuery(
-                    "SELECT * FROM employee JOIN city ON employee.city_id = city.city_id");
-            while (resultSet.next()) {
-                City city = new City(resultSet.getInt("city_id"), resultSet.getString("city_name"));
-                Employee employee = new Employee(
-                        resultSet.getInt("id"),
-                        resultSet.getString("first_name"),
-                        resultSet.getString("last_name"),
-                        resultSet.getString("gender"),
-                        resultSet.getInt("age"),
-                        city);
-                employees.add(employee);
-            }
-        } catch (SQLException e) {
-            System.out.println("Ошибка подключения к базе данных или выполнения SQL запроса: " + e.getMessage());
-        }
+        Session session = sessionFactory.openSession();
+        CriteriaQuery<Employee> criteriaQuery = session.getCriteriaBuilder().createQuery(Employee.class);
+        criteriaQuery.from(Employee.class);
+        List<Employee> employees = session.createQuery(criteriaQuery).getResultList();
+        session.close();
         return employees;
     }
 
     @Override
-    public void update(int id, Employee employee) {
-        try {
-            PreparedStatement statement = connection.prepareStatement(
-                    "UPDATE employee SET first_name=?, last_name=?, gender=?, age=?, city_id=? " +
-                            "WHERE id=?");
-            statement.setString(1, employee.getFirstName());
-            statement.setString(2, employee.getLastName());
-            statement.setString(3, employee.getGender());
-            statement.setInt(4, employee.getAge());
-            statement.setInt(5, employee.getCity().getId());
-            statement.setInt(6, id);
-            statement.executeUpdate();
-        } catch (SQLException e) {
-            System.out.println("Ошибка подключения к базе данных или выполнения SQL запроса: " + e.getMessage());
-        }
+    public void update(Employee employee) {
+        Session session = sessionFactory.openSession();
+        Transaction transaction = session.beginTransaction();
+        session.update(employee);
+        transaction.commit();
+        session.close();
     }
 
     @Override
-    public void delete(int id) {
-        String sql = "DELETE FROM employee WHERE id = ?";
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-            preparedStatement.setInt(1, id);
-            preparedStatement.executeUpdate();
-        } catch (SQLException e) {
-            System.out.println("Ошибка подключения к базе данных или выполнения SQL запроса: " + e.getMessage());
-        }
+    public void delete(Employee employee) {
+        Session session = sessionFactory.openSession();
+        Transaction transaction = session.beginTransaction();
+        session.delete(employee);
+        transaction.commit();
+        session.close();
     }
 }
